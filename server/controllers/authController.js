@@ -1,57 +1,115 @@
 const bcrypt = require("bcrypt");
-const pool = require("../db");
+const jwt = require("jsonwebtoken");
+const pool = require("../config/db");
 
 const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body || {};
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required!" });
+      return res.status(400).json({
+        message: "All fields are required!",
+      });
     }
+
     const cleanName = name.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanName || !cleanEmail) {
-      return res
-        .status(400)
-        .json({ message: "Name And Email cannot br empty!" });
+      return res.status(400).json({
+        message: "Name and email cannot be empty!",
+      });
     }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ message: "Invalid email format!" });
+      return res.status(400).json({
+        message: "Invalid email format!",
+      });
     }
-    if (password.length < 8) {
-      return res
-        .status(400)
-        .json({ message: "Passwords must be at least 8 characters!" });
+
+    if (typeof password !== "string" || password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters!",
+      });
     }
-    const existingEmail = pool.query("SELECT id FROM users WHERE email=$1", [
-      cleanEmail,
-    ]);
+
+    const existingEmail = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [cleanEmail],
+    );
 
     if (existingEmail.rows.length > 0) {
-      return res.status(409).json({ message: "Email already registered" });
+      return res.status(409).json({
+        message: "Email already registered",
+      });
     }
+
     const hashPassword = await bcrypt.hash(password, 12);
 
-    const result = pool.query(
-      "INSERT INTO users (name,email,password,role) VALUES($1,$2,$3,$4) RETURNING *",
-      [cleanName, cleanEmail, hashPassword, role || "user"],
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role`,
+      [cleanName, cleanEmail, hashPassword, "STUDENT"],
     );
-    res
-      .status(201)
-      .json({ message: "User registered successfully", user: result.rows[0] });
+
+    return res.status(201).json({
+      message: "User registered successfully",
+      user: result.rows[0],
+    });
   } catch (error) {
+    console.error("Registration error:", error);
+
     if (error.code === "23505") {
       return res.status(409).json({
         message: "Email already registered",
       });
     }
 
-    console.error("Registration error:", error.message);
-
     return res.status(500).json({
       message: "Internal server error",
     });
   }
 };
-module.exports = { register };
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are reuired!" });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+
+    const result = await pool.query(
+      "SELECT id,name,email,password,role FROM users WHERE email=$1",
+      [cleanEmail],
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: "Invaild user or email!" });
+    }
+    const user = result.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password!" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" },
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+module.exports = { register, login };
