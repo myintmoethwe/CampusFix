@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("./config/db");
+const cors = require("cors");
 
 const authRoute = require("./routes/authRoute");
 const adminRoute = require("./routes/adminRoute");
@@ -8,6 +9,13 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 app.use("/auth", authRoute);
 app.use("/admin", adminRoute);

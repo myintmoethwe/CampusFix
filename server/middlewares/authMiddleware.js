@@ -11,34 +11,43 @@ const verifyToken = (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
-    console.log("Token:", token);
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    console.log("Decoded Token:", decoded);
 
     req.user = decoded;
 
     next();
   } catch (error) {
-    console.log("JWT Error:", error.message);
+    console.error("JWT Error:", error.message);
 
     return res.status(401).json({
       message: "Invalid or expired token",
     });
   }
 };
-const allowRole = (...allowRole) => {
+
+const allowRole = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Please login first" });
+      return res.status(401).json({
+        message: "Please login first",
+      });
     }
-    if (!allowRole.includes(req.user.role)) {
-      return res.status(403).json({ message: "You don't have permission!" });
+
+    const userRole = String(req.user.role || "").toUpperCase();
+
+    const roles = allowedRoles.map((role) => String(role).toUpperCase());
+
+    if (!roles.includes(userRole)) {
+      return res.status(403).json({
+        message: "You don't have permission!",
+      });
     }
+
     next();
   };
 };
 
-module.exports = { verifyToken, allowRole };
+module.exports = {
+  verifyToken,
+  allowRole,
+};

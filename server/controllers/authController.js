@@ -75,41 +75,76 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body || {};
+
     if (!email || !password) {
-      return res.status(400).json({ message: "All fields are reuired!" });
+      return res.status(400).json({
+        message: "All fields are required!",
+      });
     }
+
     const cleanEmail = email.trim().toLowerCase();
 
     const result = await pool.query(
-      "SELECT id,name,email,password,role FROM users WHERE email=$1",
+      `SELECT id, name, email, password, role
+       FROM users
+       WHERE email = $1`,
       [cleanEmail],
     );
+
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: "Invaild user or email!" });
+      return res.status(401).json({
+        message: "Invalid email or password!",
+      });
     }
+
     const user = result.rows[0];
 
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password!" });
+      return res.status(401).json({
+        message: "Invalid email or password!",
+      });
+    }
+
+    // Normalize role
+    const role = String(user.role || "")
+      .trim()
+      .toUpperCase();
+
+    if (!["STUDENT", "TEACHER", "ADMIN"].includes(role)) {
+      console.log("Unknown user role:", user.role);
+
+      return res.status(403).json({
+        message: "Unknown user role",
+      });
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      {
+        id: user.id,
+        role: role,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
 
     return res.status(200).json({
       message: "Login successful",
-      token,
+      token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role.trim().toUpperCase(),
+      },
     });
   } catch (error) {
     console.error("Login error:", error);
+
     return res.status(500).json({
       message: "Internal server error",
     });
   }
 };
-
 module.exports = { register, login };
