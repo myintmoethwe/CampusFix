@@ -1,22 +1,18 @@
 import React from "react";
 
 function StudentNavbar() {
-  return (
-    <header className="navbar">
-      <div>
-        <h2>Student Dashboard</h2>
-        <p>Manage and track your campus issues</p>
-      </div>
+  // Get logged-in student information
+  const user = JSON.parse(localStorage.getItem("user")) || {};
 
-      <div className="user-profile">
-        <div className="avatar">S</div>
-        <div>
-          <strong>Student User</strong>
-          <small>Student</small>
-        </div>
-      </div>
-    </header>
-  );
+  const studentName =
+    user.name || user.full_name || user.username || "Student User";
+
+  const role = user.role || "Student";
+
+  // Get first letter for avatar
+  const avatarLetter = studentName.charAt(0).toUpperCase();
+
+  return <header className="navbar"></header>;
 }
 
 export default StudentNavbar;
