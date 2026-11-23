@@ -6,7 +6,7 @@ const {
   getDashboard,
   createIssue,
   getMyIssues,
-} = require("../controllers/studentCOntroller");
+} = require("../controllers/studentController");
 // router.get("/", verifyToken, allowRole("STUDENT"), (req, res) => {
 //   res
 //     .status(200)
